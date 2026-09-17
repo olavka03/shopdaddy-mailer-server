@@ -1,0 +1,444 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Contact Form Server",
+    "version": "1.0.0",
+    "description": "Receives the Shopdaddy Studio custom-order form and creates an entry of the `contact_form` metaobject in Shopify. The server authenticates to Shopify with `SHOPIFY_ACCESS_TOKEN` from its own environment, so clients send no auth. Every response uses the envelope `{ success, data }` or `{ success, message, errors }`."
+  },
+  "servers": [
+    {
+      "url": "{baseUrl}",
+      "variables": {
+        "baseUrl": {
+          "default": "http://localhost:3000"
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health"
+    },
+    {
+      "name": "Contact form"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health check",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Server is up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "status": "ok",
+                    "uptime": 12.34
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/contact-form": {
+      "post": {
+        "tags": [
+          "Contact form"
+        ],
+        "summary": "Create a contact_form metaobject entry",
+        "operationId": "createContactFormEntry",
+        "description": "Uploads the optional logo to Shopify Files, then creates **one real** `contact_form` metaobject entry in a single call.\n\n| Metaobject field | Value |\n| --- | --- |\n| `name` | `name` |\n| `email` | `email` |\n| `message` | `message` (omitted when empty) |\n| `products` | `selectedProducts` as a JSON array, absolute store urls (omitted when empty) |\n| `logo` | public Shopify Files url of the uploaded logo (omitted without a logo) |\n| `previous_page` | `previousPage` when it is an absolute http(s) url |\n| `terms_accepted` | `true` / `false` |\n| `submitted_at` | server time, UTC |",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "email"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "example": "Alma Morales",
+                    "description": "Visitor name."
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "tinoviw@mailinator.com",
+                    "description": "Visitor email."
+                  },
+                  "message": {
+                    "type": "string",
+                    "maxLength": 10000,
+                    "example": "Ipsum veniam a sed ",
+                    "description": "Free-text message, up to 10 000 characters."
+                  },
+                  "selectedProducts": {
+                    "type": "string",
+                    "example": "[\n\t\t{\"name\":\"Red Set of Thick Leather Coasters (5 pcs)\",\"variant\":\"Red\",\"url\":\"/products/set-of-thick-leather-coasters-5-pcs?_pos=1&_psq=re&_psid=ebb3966bf&_ss=e&variant=39382829957207\"},\n\t\t{\"name\":\"Red Leather Menu Book with Woven Pattern\",\"variant\":\"Red / 8.5x5.5\",\"url\":\"/products/red-leather-menu-book-with-woven-pattern?_pos=2&_psq=re&_psid=ebb3966bf&_ss=e&variant=42707676987479\"}\n\t]",
+                    "description": "JSON string of `[{ name, variant, url }]` exactly as the storefront form sends it (relative urls). Stored in the metaobject field `products` as a JSON array with the same structure and absolute urls on https://shopdaddy-studio.com, e.g. `[{\"name\":\"Red Set of Thick Leather Coasters (5 pcs)\",\"variant\":\"Red\",\"url\":\"https://shopdaddy-studio.com/products/set-of-thick-leather-coasters-5-pcs?_pos=1&_psq=re&_psid=ebb3966bf&_ss=e&variant=39382829957207\"},{\"name\":\"Red Leather Menu Book with Woven Pattern\",\"variant\":\"Red / 8.5x5.5\",\"url\":\"https://shopdaddy-studio.com/products/red-leather-menu-book-with-woven-pattern?_pos=2&_psq=re&_psid=ebb3966bf&_ss=e&variant=42707676987479\"}]`."
+                  },
+                  "logo": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "One file: EPS, AI, PSD, PDF, SVG, JPG/JPEG or PNG, max 20 MB. Only this field accepts a file."
+                  },
+                  "terms": {
+                    "type": "string",
+                    "example": "on",
+                    "description": "Checkbox value, `on` when ticked. Stored as `terms_accepted`."
+                  },
+                  "previousPage": {
+                    "type": "string",
+                    "format": "uri",
+                    "example": "https://shopdaddy-studio.com/",
+                    "description": "Hidden input with `document.referrer`. Only an absolute http(s) url is kept; stored as `previous_page`."
+                  }
+                }
+              }
+            },
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "email"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "example": "Alma Morales",
+                    "description": "Visitor name."
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "tinoviw@mailinator.com",
+                    "description": "Visitor email."
+                  },
+                  "message": {
+                    "type": "string",
+                    "maxLength": 10000,
+                    "example": "Ipsum veniam a sed ",
+                    "description": "Free-text message, up to 10 000 characters."
+                  },
+                  "selectedProducts": {
+                    "type": "string",
+                    "example": "[\n\t\t{\"name\":\"Red Set of Thick Leather Coasters (5 pcs)\",\"variant\":\"Red\",\"url\":\"/products/set-of-thick-leather-coasters-5-pcs?_pos=1&_psq=re&_psid=ebb3966bf&_ss=e&variant=39382829957207\"},\n\t\t{\"name\":\"Red Leather Menu Book with Woven Pattern\",\"variant\":\"Red / 8.5x5.5\",\"url\":\"/products/red-leather-menu-book-with-woven-pattern?_pos=2&_psq=re&_psid=ebb3966bf&_ss=e&variant=42707676987479\"}\n\t]",
+                    "description": "JSON string of `[{ name, variant, url }]` exactly as the storefront form sends it (relative urls). Stored in the metaobject field `products` as a JSON array with the same structure and absolute urls on https://shopdaddy-studio.com, e.g. `[{\"name\":\"Red Set of Thick Leather Coasters (5 pcs)\",\"variant\":\"Red\",\"url\":\"https://shopdaddy-studio.com/products/set-of-thick-leather-coasters-5-pcs?_pos=1&_psq=re&_psid=ebb3966bf&_ss=e&variant=39382829957207\"},{\"name\":\"Red Leather Menu Book with Woven Pattern\",\"variant\":\"Red / 8.5x5.5\",\"url\":\"https://shopdaddy-studio.com/products/red-leather-menu-book-with-woven-pattern?_pos=2&_psq=re&_psid=ebb3966bf&_ss=e&variant=42707676987479\"}]`."
+                  },
+                  "terms": {
+                    "type": "string",
+                    "example": "on",
+                    "description": "Checkbox value, `on` when ticked. Stored as `terms_accepted`."
+                  },
+                  "previousPage": {
+                    "type": "string",
+                    "format": "uri",
+                    "example": "https://shopdaddy-studio.com/",
+                    "description": "Hidden input with `document.referrer`. Only an absolute http(s) url is kept; stored as `previous_page`."
+                  }
+                }
+              },
+              "example": {
+                "name": "Alma Morales",
+                "email": "tinoviw@mailinator.com",
+                "message": "Ipsum veniam a sed ",
+                "selectedProducts": "[\n\t\t{\"name\":\"Red Set of Thick Leather Coasters (5 pcs)\",\"variant\":\"Red\",\"url\":\"/products/set-of-thick-leather-coasters-5-pcs?_pos=1&_psq=re&_psid=ebb3966bf&_ss=e&variant=39382829957207\"},\n\t\t{\"name\":\"Red Leather Menu Book with Woven Pattern\",\"variant\":\"Red / 8.5x5.5\",\"url\":\"/products/red-leather-menu-book-with-woven-pattern?_pos=2&_psq=re&_psid=ebb3966bf&_ss=e&variant=42707676987479\"}\n\t]",
+                "terms": "on",
+                "previousPage": "https://shopdaddy-studio.com/"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Entry created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactFormEntryResponse"
+                },
+                "examples": {
+                  "withLogo": {
+                    "summary": "With a logo",
+                    "value": {
+                      "success": true,
+                      "data": {
+                        "id": "gid://shopify/Metaobject/123456789012",
+                        "handle": "contact-form-5f0c7b2e-8a41-4d7e-9a3c-2b6f1e0d9c11",
+                        "type": "contact_form",
+                        "logoUrl": "https://cdn.shopify.com/s/files/1/0000/0000/0000/files/a1b2c3d4-9e8f-4a7b-8c6d-5e4f3a2b1c0d-brand-logo.png?v=1789643900"
+                      }
+                    }
+                  },
+                  "withoutLogo": {
+                    "summary": "Without a logo",
+                    "value": {
+                      "success": true,
+                      "data": {
+                        "id": "gid://shopify/Metaobject/123456789013",
+                        "handle": "contact-form-0d9c11e2-6b3f-4a2e-8c1d-7f5a4b3c2d1e",
+                        "type": "contact_form",
+                        "logoUrl": null
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid form data or logo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "validation": {
+                    "summary": "Missing or invalid field",
+                    "value": {
+                      "success": false,
+                      "message": "Validation failed",
+                      "errors": {
+                        "formErrors": [],
+                        "fieldErrors": {
+                          "name": [
+                            "Invalid input: expected string, received undefined"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "logoType": {
+                    "summary": "Logo file type not allowed",
+                    "value": {
+                      "success": false,
+                      "message": "The logo must be one of these file types: EPS, AI, PSD, PDF, SVG, JPG, JPEG, PNG",
+                      "errors": {
+                        "field": "logo",
+                        "allowed": [
+                          "EPS",
+                          "AI",
+                          "PSD",
+                          "PDF",
+                          "SVG",
+                          "JPG",
+                          "JPEG",
+                          "PNG"
+                        ]
+                      }
+                    }
+                  },
+                  "logoTooLarge": {
+                    "summary": "Logo over 20 MB",
+                    "value": {
+                      "success": false,
+                      "message": "The logo file is too large",
+                      "errors": {
+                        "code": "LIMIT_FILE_SIZE",
+                        "field": "logo"
+                      }
+                    }
+                  },
+                  "unexpectedFile": {
+                    "summary": "A file outside the logo field, or more than one file",
+                    "value": {
+                      "success": false,
+                      "message": "Only one file can be uploaded, in the \"logo\" field",
+                      "errors": {
+                        "code": "LIMIT_UNEXPECTED_FILE",
+                        "field": "document"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Shopify could not process the logo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "message": "The logo file could not be processed, please upload a different file",
+                  "errors": {
+                    "reason": "processing failed"
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Shopify Admin API failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "tokenRejected": {
+                    "summary": "Access token rejected",
+                    "value": {
+                      "success": false,
+                      "message": "Shopify Admin API rejected the access token",
+                      "errors": {
+                        "status": 401
+                      }
+                    }
+                  },
+                  "entryRejected": {
+                    "summary": "Entry rejected by Shopify",
+                    "value": {
+                      "success": false,
+                      "message": "Could not create the contact form entry",
+                      "errors": {
+                        "userErrors": [
+                          {
+                            "field": [
+                              "metaobject",
+                              "fields",
+                              "0"
+                            ],
+                            "message": "Value is invalid",
+                            "code": "INVALID_VALUE"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "logoTimeout": {
+                    "summary": "Logo not processed in time",
+                    "value": {
+                      "success": false,
+                      "message": "The logo was not processed by Shopify in time",
+                      "errors": {}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "status",
+              "uptime"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "example": "ok"
+              },
+              "uptime": {
+                "type": "number",
+                "description": "Process uptime in seconds"
+              }
+            }
+          }
+        }
+      },
+      "ContactFormEntryResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "id",
+              "handle",
+              "type",
+              "logoUrl"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "example": "gid://shopify/Metaobject/123456789012"
+              },
+              "handle": {
+                "type": "string",
+                "example": "contact-form-5f0c7b2e-8a41-4d7e-9a3c-2b6f1e0d9c11"
+              },
+              "type": {
+                "type": "string",
+                "example": "contact_form"
+              },
+              "logoUrl": {
+                "type": "string",
+                "format": "uri",
+                "nullable": true
+              }
+            }
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "errors"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}

@@ -32,7 +32,7 @@ export const parseSelectedProducts = (value: unknown): SelectedProduct[] => {
     const parsed = selectedProductSchema.safeParse(item);
 
     if (parsed.success) {
-      products.push(parsed.data as SelectedProduct);
+      products.push(parsed.data);
     }
   }
 

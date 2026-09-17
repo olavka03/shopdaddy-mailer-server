@@ -1,11 +1,11 @@
-import { FILE_UPLOAD_LIMITS } from '@constants';
 import { ApiError } from '@exceptions';
 import { ErrorRequestHandler, NextFunction, Request, Response } from 'express';
 import multer from 'multer';
 
 const MULTER_ERROR_MESSAGES: Record<string, string> = {
-  LIMIT_FILE_SIZE: `Each file must be ${FILE_UPLOAD_LIMITS.MAX_FILE_SIZE_MB} MB or smaller`,
-  LIMIT_FILE_COUNT: `You can upload up to ${FILE_UPLOAD_LIMITS.MAX_FILES} files per submission`,
+  LIMIT_FILE_SIZE: 'The logo file is too large',
+  LIMIT_FILE_COUNT: 'Only one file can be uploaded, in the "logo" field',
+  LIMIT_UNEXPECTED_FILE: 'Only one file can be uploaded, in the "logo" field',
 };
 
 const logClientError = (status: number, message: string, errors: unknown) => {
@@ -39,7 +39,7 @@ export const errorMiddleware: ErrorRequestHandler = (
   }
 
   if (error instanceof multer.MulterError) {
-    const message = MULTER_ERROR_MESSAGES[error.code] || 'The uploaded files could not be processed';
+    const message = MULTER_ERROR_MESSAGES[error.code] || 'The uploaded file could not be processed';
     const errors = { code: error.code, field: error.field };
 
     logClientError(400, message, errors);

@@ -1,10 +1,8 @@
 export type SelectedProduct = {
   name: string;
   variant?: string;
+  /** As sent by the storefront, usually relative: /products/<handle>?variant=<id>. */
   url?: string;
-  absoluteUrl?: string | null;
-  image?: string;
-  price?: string;
-  quantity?: string;
-  sku?: string;
+  /** `url` resolved against SHOPIFY_STORE_URL. */
+  absoluteUrl?: string;
 };

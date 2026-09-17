@@ -8,11 +8,6 @@ const optionalTextSchema = zod
   .optional()
   .transform((value) => (value ? value : undefined));
 
-const displayValueSchema = zod
-  .union([zod.string(), zod.number()])
-  .optional()
-  .transform((value) => (value === undefined ? undefined : String(value).trim() || undefined));
-
 const termsSchema = zod
   .union([zod.string(), zod.number(), zod.boolean()])
   .optional()
@@ -30,24 +25,27 @@ export const selectedProductSchema = zod.object({
   name: zod.string().trim().min(1, 'Product name is required'),
   variant: optionalTextSchema,
   url: optionalTextSchema,
-  image: optionalTextSchema,
-  price: displayValueSchema,
-  quantity: displayValueSchema,
-  sku: optionalTextSchema,
 });
 
-export const contactFormSchema = zod
-  .object({
-    name: zod.string().trim().min(1, 'Name is required'),
-    email: zod.string().trim().pipe(zod.email('Invalid email address')),
-    phone: optionalTextSchema,
-    subject: optionalTextSchema,
-    message: zod.string().trim().optional().default(''),
-    selectedProducts: zod.unknown().optional(),
-    terms: termsSchema,
-  })
-  .catchall(zod.unknown());
-
-export type ContactFormInput = zod.input<typeof contactFormSchema>;
+export const contactFormSchema = zod.object({
+  // stored in a single_line_text_field, so line breaks pasted into the input are collapsed into spaces
+  name: zod
+    .string()
+    .transform((value) => value.replace(/\s+/g, ' ').trim())
+    .pipe(zod.string().min(1, 'Name is required')),
+  email: zod.string().trim().pipe(zod.email('Invalid email address')),
+  // multi_line_text_field values are capped at 64 KB; 10 000 characters stays under it even for 4-byte characters
+  message: zod.string().trim().max(10000, 'Message must be 10000 characters or fewer').optional().default(''),
+  selectedProducts: zod.unknown().optional(),
+  terms: termsSchema,
+  // hidden input filled with document.referrer; anything that is not an absolute http(s) url is dropped instead of
+  // failing the submission, which also keeps javascript: and relative values out of the email links
+  previousPage: zod
+    .string()
+    .trim()
+    .pipe(zod.url({ protocol: /^https?$/ }))
+    .optional()
+    .catch(undefined),
+});
 
 export type ContactFormParsed = zod.infer<typeof contactFormSchema>;
