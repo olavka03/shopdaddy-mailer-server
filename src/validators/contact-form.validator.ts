@@ -37,6 +37,9 @@ export const contactFormSchema = zod.object({
   // multi_line_text_field values are capped at 64 KB; 10 000 characters stays under it even for 4-byte characters
   message: zod.string().trim().max(10000, 'Message must be 10000 characters or fewer').optional().default(''),
   selectedProducts: zod.unknown().optional(),
+  // multipart/form-data cannot carry an array, so the same list of links arrives as a JSON string there, as a string
+  // array when the field is repeated, and as a real array in a JSON body; the urls are validated in the fields builder
+  linkList: zod.union([zod.string(), zod.array(zod.string())]).optional(),
   terms: termsSchema,
   // hidden input filled with document.referrer; anything that is not an absolute http(s) url is dropped instead of
   // failing the submission, which also keeps javascript: and relative values out of the email links

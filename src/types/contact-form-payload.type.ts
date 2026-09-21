@@ -7,6 +7,7 @@ export type ContactFormPayload = {
   message: string;
   termsAccepted: boolean;
   products: SelectedProduct[];
+  links: string[];
   logo?: MailAttachment;
   previousPage?: string;
   submittedAt: Date;

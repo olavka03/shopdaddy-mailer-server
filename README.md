@@ -1,7 +1,7 @@
 # Contact Form Server
 
 A small Express 5 + TypeScript service behind the Shopdaddy Studio storefront contact form. It accepts one
-submission (name, email, message, pre-selected products, an optional logo file) and stores it:
+submission (name, email, message, pre-selected products, extra links, an optional logo file) and stores it:
 
 - **`POST /api/contact-form`** stores it in Shopify as a **metaobject entry**, with the logo uploaded to Shopify
   Files. A Shopify Flow workflow triggered by the new entry sends the notification email.
@@ -16,6 +16,7 @@ The API is described in [`postman/contact-form-server.openapi.json`](postman/con
 - Accepts `multipart/form-data`, `application/json` and `application/x-www-form-urlencoded`
 - One optional logo file, held in memory and validated by extension (EPS, AI, PSD, PDF, SVG, JPG/JPEG, PNG)
 - Pre-selected products parsed from a JSON string, with relative product URLs resolved to absolute and stored as JSON
+- Extra links from `linkList` stored as a list of absolute URLs
 - Captures the page the visitor came from and records it in the entry and the email
 
 ---
@@ -209,7 +210,7 @@ never rename or remove them once a workflow uses them.
 1. Go to **Settings > Custom data > Metaobject definitions > Add definition**.
 2. Name it **Contact form**. Click the type below the name and set it to the exact value of
    `SHOPIFY_METAOBJECT_TYPE` (`contact_form`).
-3. Add the eight fields below. For each field, open it and set the **key** to the value in the "Key" column, and
+3. Add the nine fields below. For each field, open it and set the **key** to the value in the "Key" column, and
    tick **Required** only for `name` and `email`.
 4. Save.
 
@@ -221,6 +222,7 @@ never rename or remove them once a workflow uses them.
 | Previous page  | `previous_page`  | URL                      | —        | `previousPage`, only when it is an absolute `http(s)` URL                      |
 | Terms accepted | `terms_accepted` | True or false            | —        | Always written, `true` or `false`                                              |
 | Products       | `products`       | JSON                     | —        | The selected products as a JSON array, see [Products format](#products-format) |
+| Links          | `link_list`      | URL (list of values)     | —        | `linkList` as a list of absolute URLs, see [Links format](#links-format)       |
 | Submitted at   | `submitted_at`   | Date and time            | —        | Server clock, UTC                                                              |
 | Logo           | `logo`           | URL                      | —        | Public Shopify CDN URL of the uploaded logo                                    |
 
@@ -279,6 +281,16 @@ The same value, formatted for reading:
 
 ---
 
+### Links format
+
+`link_list` is a **list of URLs** field, so Shopify stores it as a JSON array of strings. The storefront sends the
+links in `linkList`, either as a JSON array (`["https://…","https://…"]`), as one bare URL, or as a real array in a
+JSON body. They may point anywhere — a product, a page, a file, another site — so unlike products they are not
+restricted to the store origin. The server keeps a link only when it is an absolute `http(s)` URL of at most 2 KB,
+drops duplicates (after URL normalization) and keeps at most 128 links, which is Shopify's limit for a list field.
+Anything else (`javascript:` URLs, relative paths, other schemes, empty values, non-string items) is dropped without
+failing the submission. The field is left out of the entry when no link survives.
+
 ## Shopify Flow
 
 The server never sends the email for `POST /api/contact-form`; Flow does, with **Liquid only** — no code step.
@@ -290,8 +302,9 @@ The server never sends the email for `POST /api/contact-form`; Flow does, with *
 
 The template reads the entry's fields directly from the trigger variable (`metaobject.name`, `metaobject.email`, …,
 without `.value`). Keys with two words are camelCase in Flow: `previous_page` → `previousPage`,
-`terms_accepted` → `termsAccepted`, `submitted_at` → `submittedAt`. If the editor names a field differently, insert it
-with **Add a variable**. Every value goes through `escape`, and empty optional fields print nothing.
+`terms_accepted` → `termsAccepted`, `submitted_at` → `submittedAt`, `link_list` → `linkList`. If the editor names a field differently, insert it
+with **Add a variable**. Every value goes through `escape`. The layout uses tables and inline styles only, because
+most mail clients strip `<style>` blocks.
 
 **Subject:**
 
@@ -315,6 +328,53 @@ New custom order request from {{ metaobject.name }}
 {% assign message_text = metaobject.message | strip %}
 {% assign logo_url = metaobject.logo | strip %}
 {% assign previous_page_url = metaobject.previousPage | strip %}
+{% assign terms_text = metaobject.termsAccepted | strip %}
+{% assign submitted_raw = metaobject.submittedAt | strip %}
+{% assign submitted_month = submitted_raw | slice: 5, 2 %}
+{% assign submitted_month_name = "" %}
+{% case submitted_month %}
+  {% when "01" %}{% assign submitted_month_name = "January" %}
+  {% when "02" %}{% assign submitted_month_name = "February" %}
+  {% when "03" %}{% assign submitted_month_name = "March" %}
+  {% when "04" %}{% assign submitted_month_name = "April" %}
+  {% when "05" %}{% assign submitted_month_name = "May" %}
+  {% when "06" %}{% assign submitted_month_name = "June" %}
+  {% when "07" %}{% assign submitted_month_name = "July" %}
+  {% when "08" %}{% assign submitted_month_name = "August" %}
+  {% when "09" %}{% assign submitted_month_name = "September" %}
+  {% when "10" %}{% assign submitted_month_name = "October" %}
+  {% when "11" %}{% assign submitted_month_name = "November" %}
+  {% when "12" %}{% assign submitted_month_name = "December" %}
+{% endcase %}
+{% if submitted_month_name != "" %}
+  {% assign submitted_year = submitted_raw | slice: 0, 4 %}
+  {% assign submitted_day = submitted_raw | slice: 8, 2 | plus: 0 %}
+  {% assign submitted_time = submitted_raw | slice: 11, 5 %}
+  {% assign submitted_zone = submitted_raw | slice: 19, 6 %}
+  {% if submitted_zone == "" or submitted_zone == "Z" or submitted_zone == "+00:00" %}
+    {% assign submitted_zone = "UTC" %}
+  {% else %}
+    {% assign submitted_zone = "UTC" | append: submitted_zone %}
+  {% endif %}
+  {% assign submitted_at_text = submitted_month_name | append: " " | append: submitted_day | append: ", " | append: submitted_year | append: " at " | append: submitted_time | append: " " | append: submitted_zone %}
+{% else %}
+  {% assign submitted_at_text = submitted_raw %}
+{% endif %}
+{% assign link_list_text = metaobject.linkList | replace: esc_bs, ph_bs | replace: esc_quote, ph_quote | replace: esc_amp, "&" | replace: esc_lt, "<" | replace: esc_gt, ">" | replace: esc_apos, "'" | replace: esc_slash, "/" | strip %}
+{% if link_list_text contains '"' %}
+  {% assign link_tokens = link_list_text | split: '"' %}
+{% else %}
+  {% assign link_tokens = link_list_text | split: "," %}
+{% endif %}
+{% assign links_html = "" %}
+{% for link_token in link_tokens %}
+  {% assign link_value = link_token | replace: ph_quote, '"' | replace: ph_bs, bs | strip %}
+  {% assign link_scheme = link_value | slice: 0, 4 %}
+  {% if link_scheme == "http" and link_value contains "://" %}
+    {% assign item_link = link_value | escape %}
+    {% assign links_html = links_html | append: '<tr><td style="padding:10px 0;border-top:1px solid #e5e3dc;font-size:14px;line-height:20px;word-break:break-all;"><a href="' | append: item_link | append: '" style="color:#372727;text-decoration:underline;">' | append: item_link | append: "</a></td></tr>" %}
+  {% endif %}
+{% endfor %}
 {% assign products_json = metaobject.products | replace: esc_bs, ph_bs | replace: esc_quote, ph_quote | replace: esc_amp, "&" | replace: esc_lt, "<" | replace: esc_gt, ">" | replace: esc_apos, "'" | replace: esc_slash, "/" %}
 {% assign product_tokens = products_json | split: '"' %}
 {% assign in_string = false %}
@@ -342,16 +402,17 @@ New custom order request from {{ metaobject.name }}
     {% if structure contains "}" %}
       {% if product_name != "" %}
         {% assign item_name = product_name | escape %}
-        {% assign products_html = products_html | append: "<li>" | append: item_name %}
+        {% assign products_html = products_html | append: '<tr><td style="padding:10px 12px 10px 0;border-top:1px solid #e5e3dc;vertical-align:middle;font-size:14px;line-height:20px;color:#372727;">' | append: item_name %}
         {% if product_variant != "" %}
           {% assign item_variant = product_variant | escape %}
-          {% assign products_html = products_html | append: " - " | append: item_variant %}
+          {% assign products_html = products_html | append: '<br><span style="color:#6f6362;">' | append: item_variant | append: "</span>" %}
         {% endif %}
+        {% assign products_html = products_html | append: '</td><td align="right" style="padding:10px 0;border-top:1px solid #e5e3dc;vertical-align:middle;white-space:nowrap;">' %}
         {% if product_url != "" %}
           {% assign item_url = product_url | escape %}
-          {% assign products_html = products_html | append: ': <a href="' | append: item_url | append: '">' | append: item_url | append: "</a>" %}
+          {% assign products_html = products_html | append: '<a href="' | append: item_url | append: '" style="display:inline-block;padding:6px 12px;border:1px solid #372727;border-radius:6px;font-size:13px;line-height:18px;color:#372727;text-decoration:none;">View product</a>' %}
         {% endif %}
-        {% assign products_html = products_html | append: "</li>" %}
+        {% assign products_html = products_html | append: "</td></tr>" %}
       {% endif %}
       {% assign product_name = "" %}
       {% assign product_variant = "" %}
@@ -365,27 +426,92 @@ New custom order request from {{ metaobject.name }}
     {% assign in_string = true %}
   {% endif %}
 {% endfor %}
-<p><b>Name:</b> {{ metaobject.name | escape }}</p>
-<p><b>Email:</b> <a href="mailto:{{ metaobject.email | escape }}">{{ metaobject.email | escape }}</a></p>
-{% if message_text != "" and message_text != "null" %}
-<p><b>Message:</b><br>{{ message_text | escape | newline_to_br }}</p>
-{% endif %}
-{% if products_html != "" %}
-<p><b>Products:</b></p>
-<ul>{{ products_html }}</ul>
-{% else %}
-<p><b>Products:</b> none</p>
-{% endif %}
-{% if logo_url != "" and logo_url != "null" %}
-<p><b>Logo:</b> <a href="{{ logo_url | escape }}">{{ logo_url | escape }}</a></p>
-{% else %}
-<p><b>Logo:</b> none</p>
-{% endif %}
-{% if previous_page_url != "" and previous_page_url != "null" %}
-<p><b>Previous page:</b> <a href="{{ previous_page_url | escape }}">{{ previous_page_url | escape }}</a></p>
-{% endif %}
-<p><b>Terms accepted:</b> {{ metaobject.termsAccepted | escape }}</p>
-<p><b>Submitted at:</b> {{ metaobject.submittedAt | escape }} UTC</p>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600&amp;family=Shippori+Mincho&amp;display=swap">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:#e5e3dc;">
+  <tr>
+    <td align="center" style="padding:32px 16px;background-color:#e5e3dc;">
+      <table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:640px;margin:0 auto;border-collapse:separate;border-spacing:0;">
+        <tr>
+          <td align="center" style="padding:0 0 24px;background-color:#e5e3dc;">
+            <a href="https://shopdaddy-studio.com" style="text-decoration:none;"><img src="https://shopdaddy-studio.com/cdn/shop/files/Logo_Shopdaddy.svg?v=1777367869&amp;width=600&amp;format=png" width="200" alt="Shopdaddy-Studio" style="display:block;width:200px;max-width:100%;height:auto;margin:0 auto;border:0;outline:none;font-size:20px;color:#372727;"></a>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 28px 32px;background-color:#f6f5f1;border-radius:8px;text-align:left;font-family:Figtree,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#372727;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+        <tr>
+          <td style="padding-bottom:20px;border-bottom:1px solid #e5e3dc;">
+            <div style="font-family:'Shippori Mincho',Georgia,'Times New Roman',serif;font-size:28px;line-height:34px;font-weight:400;">New custom order request<span style="color:#e2591c;">.</span></div>
+            {% if submitted_at_text != "" and submitted_at_text != "null" %}
+            <div style="padding-top:6px;font-size:13px;line-height:20px;color:#6f6362;"><span style="font-weight:600;">Submitted:</span> {{ submitted_at_text | escape }}</div>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding-top:16px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+              <tr>
+                <td width="110" style="width:110px;padding:6px 16px 6px 0;vertical-align:top;font-size:14px;line-height:20px;color:#6f6362;">Name</td>
+                <td style="padding:6px 0;vertical-align:top;font-size:14px;line-height:20px;word-break:break-word;">{{ metaobject.name | escape }}</td>
+              </tr>
+              <tr>
+                <td width="110" style="width:110px;padding:6px 16px 6px 0;vertical-align:top;font-size:14px;line-height:20px;color:#6f6362;">Email</td>
+                <td style="padding:6px 0;vertical-align:top;font-size:14px;line-height:20px;word-break:break-word;"><a href="mailto:{{ metaobject.email | escape }}" style="color:#372727;text-decoration:underline;">{{ metaobject.email | escape }}</a></td>
+              </tr>
+              {% if previous_page_url != "" and previous_page_url != "null" %}
+              <tr>
+                <td width="110" style="width:110px;padding:6px 16px 6px 0;vertical-align:top;font-size:14px;line-height:20px;color:#6f6362;">Came from</td>
+                <td style="padding:6px 0;vertical-align:top;font-size:14px;line-height:20px;word-break:break-all;"><a href="{{ previous_page_url | escape }}" style="color:#372727;text-decoration:underline;">{{ previous_page_url | escape }}</a></td>
+              </tr>
+              {% endif %}
+              <tr>
+                <td width="110" style="width:110px;padding:6px 16px 6px 0;vertical-align:top;font-size:14px;line-height:20px;color:#6f6362;">Terms</td>
+                <td style="padding:6px 0;vertical-align:top;font-size:14px;line-height:20px;">{% if terms_text == "true" %}Accepted{% elsif terms_text == "false" %}Not accepted{% else %}{{ terms_text | escape }}{% endif %}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        {% if message_text != "" and message_text != "null" %}
+        <tr>
+          <td style="padding-top:24px;">
+            <div style="padding-bottom:8px;font-family:'Shippori Mincho',Georgia,'Times New Roman',serif;font-size:18px;line-height:24px;font-weight:400;">Message</div>
+            <div style="font-size:14px;line-height:22px;word-break:break-word;">{{ message_text | escape | newline_to_br }}</div>
+          </td>
+        </tr>
+        {% endif %}
+        {% if products_html != "" %}
+        <tr>
+          <td style="padding-top:24px;">
+            <div style="padding-bottom:8px;font-family:'Shippori Mincho',Georgia,'Times New Roman',serif;font-size:18px;line-height:24px;font-weight:400;">Products</div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;border-bottom:1px solid #e5e3dc;">{{ products_html }}</table>
+          </td>
+        </tr>
+        {% endif %}
+        {% if links_html != "" %}
+        <tr>
+          <td style="padding-top:24px;">
+            <div style="padding-bottom:8px;font-family:'Shippori Mincho',Georgia,'Times New Roman',serif;font-size:18px;line-height:24px;font-weight:400;">Links</div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;border-bottom:1px solid #e5e3dc;">{{ links_html }}</table>
+          </td>
+        </tr>
+        {% endif %}
+        <tr>
+          <td style="padding-top:24px;">
+            <div style="padding-bottom:8px;font-family:'Shippori Mincho',Georgia,'Times New Roman',serif;font-size:18px;line-height:24px;font-weight:400;">Logo</div>
+            {% if logo_url != "" and logo_url != "null" %}
+            <a href="{{ logo_url | escape }}" style="display:inline-block;padding:6px 12px;border:1px solid #372727;border-radius:6px;font-size:13px;line-height:18px;color:#372727;text-decoration:none;">Open logo</a>
+            {% else %}
+            <div style="font-size:14px;line-height:20px;color:#6f6362;">none</div>
+            {% endif %}
+          </td>
+        </tr>
+      </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
 ```
 
 How `products` is read. In Flow `metaobject.products` is a JSON scalar with no child fields (the editor rejects
@@ -410,8 +536,20 @@ reads, because `=>` is accepted as a key/value separator next to `:`:
    the product, which is printed if it has a name and then reset.
 6. In the printed values `\Q` and then `\B` are restored to `"` and `\`.
 
-Each product is printed as `<name> - <variant>: <url>`: ` - <variant>` is left out when there is no variant and
-`: <url>` when there is no URL. The link href and text are the stored absolute URL as is; the template adds no domain.
+Each product is a table row: the name, the variant in grey on the line below, and a **View product** button on the
+right. The variant is left out when there is none and the button when there is no URL. The button links to the stored
+absolute URL as is; the template adds no domain. The logo is an **Open logo** button that links to the file, and terms
+print `Accepted` or `Not accepted` (any other value is printed as is).
+
+The email uses the store's colours: a `#f6f5f1` card up to 640px wide, centred on the `#e5e3dc` header colour, with
+`#372727` text, links and button borders, and the `#e2591c` dot after the title. The store logo sits above the card
+and links to the store; it is loaded as PNG (`&format=png` on the Shopify CDN URL) because Gmail and Outlook do not
+show SVG images. Headings use the store's Shippori Mincho and text uses Figtree, loaded from Google Fonts; clients that
+block web fonts (Gmail, Outlook) fall back to Georgia and the system sans-serif font. Flow prints `submitted_at` with an
+offset (`2026-09-17T12:36:48+00:00`). The template cuts the date and time out of that text and prints
+`September 17, 2026 at 12:36 UTC`; it does not use the `date` filter, so no engine can shift the time zone. The server
+always writes the value in UTC; if Flow ever prints another offset, it is shown as `UTC-05:00`, and a value in an
+unexpected format is printed as is.
 
 The template was rendered with Ruby Liquid 5.2 and LiquidJS 10 against the exact values the server writes for the
 storefront payload above and for hostile product data (quotes, backslashes, `\"`, `","`, `":"`, `"},{"`, `[{"`,
@@ -420,10 +558,18 @@ and `javascript:` URLs), each in eight serializations: compact, with spaces, wit
 pretty-printed with two spaces, tabs or CRLF line breaks, and with HTML-safe escapes both compact and pretty-printed. Every product line
 matched the stored data exactly and all visitor HTML was escaped.
 
+How `link_list` is read. The value is read as text too, because Flow may hand a list field over as the JSON array
+Shopify stores (`["https://a","https://b"]`) or as an already parsed list, which Liquid turns into Ruby's text form
+(`["https://a", "https://b"]`). Both contain `"`, so the value is split on it; when the text has no `"` at all (a
+single URL, or a list joined with commas) it is split on `,` instead. A piece becomes a link only when it starts with
+`http` and contains `://`, which drops the `[`, `,` and `]` pieces along with anything that is not an http(s) URL.
+The same unescaping as for products runs first, so `\/` and `\u0026` in the stored JSON read back as `/` and `&`.
+
 Optional values are turned into text with `strip` before they are compared, so an empty field is detected whatever
 form Flow hands it over in (missing, `null`, an empty string or an empty field object). Products are collected into
-`products_html` first and the section is decided by whether any product was actually found. When there is no logo or
-no product the email says `none`; an empty message or previous page is left out. `blank` is not used: outside Rails,
+`products_html` first and the section is decided by whether any product was actually found; the same is done for the
+links. When there is no logo the email says `none`; an empty message, previous page, products list or link list leaves
+its section out of the email entirely. `blank` is not used: outside Rails,
 Ruby Liquid evaluates `!= blank` as true for missing values.
 
 The template was also rendered in Ruby Liquid 5.2 (UTF-8) with `products` as a compact JSON string, pretty-printed
@@ -520,6 +666,7 @@ Both `POST` endpoints accept the same fields — exactly what the storefront for
 | `email`            | ✅       | visitor address; becomes the email `replyTo`                                                                                                                                                                                                                                                       |
 | `message`          | —        | newlines preserved, max 10 000 characters                                                                                                                                                                                                                                                             |
 | `selectedProducts` | —        | JSON string of `[{ "name", "variant", "url" }]`. `url` is usually relative (`/products/<handle>?variant=<id>`) and is resolved against `SHOPIFY_STORE_URL`. Items without a `name` are skipped; see [Products format](#products-format)                                                               |
+| `linkList`         | —        | JSON array of absolute `http(s)` URLs (a single bare URL is also accepted); see [Links format](#links-format)                                                                                                                                                                                       |
 | `logo`             | —        | **one** file, see [Logo rules](#logo-rules)                                                                                                                                                                                                                                                        |
 | `terms`            | —        | checkbox; `on` (also `true` / `1` / `yes`) → accepted, anything else or missing → not accepted                                                                                                                                                                                                     |
 | `previousPage`     | —        | Hidden input with `document.referrer` — the page the visitor came from **before** the form page. Only an absolute `http(s)` URL is kept; an empty or any other value is silently ignored and never fails the submission |
@@ -542,6 +689,7 @@ curl -X POST http://localhost:3000/api/contact-form \
   -F 'terms=on' \
   -F 'previousPage=https://shopdaddy-studio.com/collections/coasters' \
   -F 'selectedProducts=[{"name":"Red Set of Thick Leather Coasters (5 pcs)","variant":"Red","url":"/products/set-of-thick-leather-coasters-5-pcs?variant=39382829957207"}]' \
+  -F 'linkList=["https://shopdaddy-studio.com/pages/lookbook","https://example.com/brief.pdf"]' \
   -F 'logo=@./brand-logo.ai'
 ```
 
@@ -573,6 +721,7 @@ curl -X POST http://localhost:3000/api/contact-form/email \
   -F 'terms=on' \
   -F 'previousPage=https://shopdaddy-studio.com/collections/coasters' \
   -F 'selectedProducts=[{"name":"Red Set of Thick Leather Coasters (5 pcs)","variant":"Red","url":"/products/set-of-thick-leather-coasters-5-pcs?variant=39382829957207"}]' \
+  -F 'linkList=["https://shopdaddy-studio.com/pages/lookbook","https://example.com/brief.pdf"]' \
   -F 'logo=@./brand-logo.png'
 ```
 

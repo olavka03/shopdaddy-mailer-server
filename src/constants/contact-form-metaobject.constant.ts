@@ -7,6 +7,7 @@ export const CONTACT_FORM_METAOBJECT_FIELD_KEYS = {
   EMAIL: 'email',
   MESSAGE: 'message',
   PRODUCTS: 'products',
+  LINK_LIST: 'link_list',
   LOGO: 'logo',
   PREVIOUS_PAGE: 'previous_page',
   TERMS_ACCEPTED: 'terms_accepted',
@@ -15,3 +16,6 @@ export const CONTACT_FORM_METAOBJECT_FIELD_KEYS = {
 
 /** Shopify rejects url field values over 2 KB (https://shopify.dev/docs/apps/build/metafields/metafield-limits). */
 export const METAOBJECT_URL_MAX_BYTES = 2048;
+
+/** A list field holds at most 128 entries (https://shopify.dev/docs/apps/build/metafields/metafield-limits). */
+export const METAOBJECT_LIST_MAX_ITEMS = 128;

@@ -3,6 +3,7 @@ export * from './escape-html.util';
 export * from './format-bytes.util';
 export * from './format-date.util';
 export * from './parse-selected-products.util';
+export * from './parse-link-list.util';
 export * from './resolve-absolute-url.util';
 export * from './resolve-logo-mime-type.util';
 export * from './to-form-file.util';

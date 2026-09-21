@@ -1,4 +1,4 @@
-import { CONTACT_FORM_METAOBJECT_FIELD_KEYS, METAOBJECT_URL_MAX_BYTES } from '@constants';
+import { CONTACT_FORM_METAOBJECT_FIELD_KEYS, METAOBJECT_LIST_MAX_ITEMS, METAOBJECT_URL_MAX_BYTES } from '@constants';
 import { ContactFormPayload, MetaobjectFieldInput, SelectedProduct, UploadedShopifyFile } from '@types';
 import { toShopifyDateTime } from './to-shopify-date-time.util';
 
@@ -75,6 +75,16 @@ const toProductsJson = (products: SelectedProduct[], storeUrl: string): string =
   return items.length > 0 ? JSON.stringify(items) : '';
 };
 
+/**
+ * Compact JSON array of absolute http(s) urls for the `list.url` field; empty string when there is nothing to store.
+ * Unlike products these links may point anywhere, so only the scheme, the length and duplicates are checked.
+ */
+const toLinksJson = (links: string[]): string => {
+  const urls = [...new Set(links.map((link) => toHttpUrl(link)).filter(Boolean))].slice(0, METAOBJECT_LIST_MAX_ITEMS);
+
+  return urls.length > 0 ? JSON.stringify(urls) : '';
+};
+
 /** Builds the metaobjectCreate `fields` input. Empty optional fields are omitted, `terms_accepted` is always written. */
 export const buildContactFormMetaobjectFields = (
   payload: ContactFormPayload,
@@ -93,6 +103,7 @@ export const buildContactFormMetaobjectFields = (
   addField(CONTACT_FORM_METAOBJECT_FIELD_KEYS.EMAIL, toTrimmedString(payload.email));
   addField(CONTACT_FORM_METAOBJECT_FIELD_KEYS.MESSAGE, toTrimmedString(payload.message));
   addField(CONTACT_FORM_METAOBJECT_FIELD_KEYS.PRODUCTS, toProductsJson(payload.products, storeUrl));
+  addField(CONTACT_FORM_METAOBJECT_FIELD_KEYS.LINK_LIST, toLinksJson(payload.links));
   addField(CONTACT_FORM_METAOBJECT_FIELD_KEYS.LOGO, toHttpUrl(logo?.url));
   addField(CONTACT_FORM_METAOBJECT_FIELD_KEYS.PREVIOUS_PAGE, toHttpUrl(payload.previousPage));
   fields.push({ key: CONTACT_FORM_METAOBJECT_FIELD_KEYS.TERMS_ACCEPTED, value: String(payload.termsAccepted) });

@@ -26,9 +26,7 @@
   "paths": {
     "/health": {
       "get": {
-        "tags": [
-          "Health"
-        ],
+        "tags": ["Health"],
         "summary": "Health check",
         "operationId": "getHealth",
         "responses": {
@@ -54,9 +52,7 @@
     },
     "/api/contact-form": {
       "post": {
-        "tags": [
-          "Contact form"
-        ],
+        "tags": ["Contact form"],
         "summary": "Create a contact_form metaobject entry",
         "operationId": "createContactFormEntry",
         "description": "Uploads the optional logo to Shopify Files, then creates **one real** `contact_form` metaobject entry in a single call.\n\n| Metaobject field | Value |\n| --- | --- |\n| `name` | `name` |\n| `email` | `email` |\n| `message` | `message` (omitted when empty) |\n| `products` | `selectedProducts` as a JSON array, absolute store urls (omitted when empty) |\n| `logo` | public Shopify Files url of the uploaded logo (omitted without a logo) |\n| `previous_page` | `previousPage` when it is an absolute http(s) url |\n| `terms_accepted` | `true` / `false` |\n| `submitted_at` | server time, UTC |",
@@ -66,10 +62,7 @@
             "multipart/form-data": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "name",
-                  "email"
-                ],
+                "required": ["name", "email"],
                 "properties": {
                   "name": {
                     "type": "string",
@@ -93,6 +86,11 @@
                     "type": "string",
                     "example": "[\n\t\t{\"name\":\"Red Set of Thick Leather Coasters (5 pcs)\",\"variant\":\"Red\",\"url\":\"/products/set-of-thick-leather-coasters-5-pcs?_pos=1&_psq=re&_psid=ebb3966bf&_ss=e&variant=39382829957207\"},\n\t\t{\"name\":\"Red Leather Menu Book with Woven Pattern\",\"variant\":\"Red / 8.5x5.5\",\"url\":\"/products/red-leather-menu-book-with-woven-pattern?_pos=2&_psq=re&_psid=ebb3966bf&_ss=e&variant=42707676987479\"}\n\t]",
                     "description": "JSON string of `[{ name, variant, url }]` exactly as the storefront form sends it (relative urls). Stored in the metaobject field `products` as a JSON array with the same structure and absolute urls on https://shopdaddy-studio.com, e.g. `[{\"name\":\"Red Set of Thick Leather Coasters (5 pcs)\",\"variant\":\"Red\",\"url\":\"https://shopdaddy-studio.com/products/set-of-thick-leather-coasters-5-pcs?_pos=1&_psq=re&_psid=ebb3966bf&_ss=e&variant=39382829957207\"},{\"name\":\"Red Leather Menu Book with Woven Pattern\",\"variant\":\"Red / 8.5x5.5\",\"url\":\"https://shopdaddy-studio.com/products/red-leather-menu-book-with-woven-pattern?_pos=2&_psq=re&_psid=ebb3966bf&_ss=e&variant=42707676987479\"}]`."
+                  },
+                  "linkList": {
+                    "type": "string",
+                    "example": "[\"https://shopdaddy-studio.com/pages/lookbook\",\"https://example.com/brief.pdf\"]",
+                    "description": "JSON array of absolute http(s) urls the form collected (a single bare url is also accepted). Stored in the metaobject field `link_list` as a list of urls: duplicates are dropped, each url must be at most 2 KB and at most 128 urls are kept. Values that are not absolute http(s) urls are ignored."
                   },
                   "logo": {
                     "type": "string",
@@ -116,10 +114,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "name",
-                  "email"
-                ],
+                "required": ["name", "email"],
                 "properties": {
                   "name": {
                     "type": "string",
@@ -144,6 +139,11 @@
                     "example": "[\n\t\t{\"name\":\"Red Set of Thick Leather Coasters (5 pcs)\",\"variant\":\"Red\",\"url\":\"/products/set-of-thick-leather-coasters-5-pcs?_pos=1&_psq=re&_psid=ebb3966bf&_ss=e&variant=39382829957207\"},\n\t\t{\"name\":\"Red Leather Menu Book with Woven Pattern\",\"variant\":\"Red / 8.5x5.5\",\"url\":\"/products/red-leather-menu-book-with-woven-pattern?_pos=2&_psq=re&_psid=ebb3966bf&_ss=e&variant=42707676987479\"}\n\t]",
                     "description": "JSON string of `[{ name, variant, url }]` exactly as the storefront form sends it (relative urls). Stored in the metaobject field `products` as a JSON array with the same structure and absolute urls on https://shopdaddy-studio.com, e.g. `[{\"name\":\"Red Set of Thick Leather Coasters (5 pcs)\",\"variant\":\"Red\",\"url\":\"https://shopdaddy-studio.com/products/set-of-thick-leather-coasters-5-pcs?_pos=1&_psq=re&_psid=ebb3966bf&_ss=e&variant=39382829957207\"},{\"name\":\"Red Leather Menu Book with Woven Pattern\",\"variant\":\"Red / 8.5x5.5\",\"url\":\"https://shopdaddy-studio.com/products/red-leather-menu-book-with-woven-pattern?_pos=2&_psq=re&_psid=ebb3966bf&_ss=e&variant=42707676987479\"}]`."
                   },
+                  "linkList": {
+                    "type": "string",
+                    "example": "[\"https://shopdaddy-studio.com/pages/lookbook\",\"https://example.com/brief.pdf\"]",
+                    "description": "JSON array of absolute http(s) urls the form collected (a single bare url is also accepted). Stored in the metaobject field `link_list` as a list of urls: duplicates are dropped, each url must be at most 2 KB and at most 128 urls are kept. Values that are not absolute http(s) urls are ignored."
+                  },
                   "terms": {
                     "type": "string",
                     "example": "on",
@@ -162,6 +162,7 @@
                 "email": "tinoviw@mailinator.com",
                 "message": "Ipsum veniam a sed ",
                 "selectedProducts": "[\n\t\t{\"name\":\"Red Set of Thick Leather Coasters (5 pcs)\",\"variant\":\"Red\",\"url\":\"/products/set-of-thick-leather-coasters-5-pcs?_pos=1&_psq=re&_psid=ebb3966bf&_ss=e&variant=39382829957207\"},\n\t\t{\"name\":\"Red Leather Menu Book with Woven Pattern\",\"variant\":\"Red / 8.5x5.5\",\"url\":\"/products/red-leather-menu-book-with-woven-pattern?_pos=2&_psq=re&_psid=ebb3966bf&_ss=e&variant=42707676987479\"}\n\t]",
+                "linkList": "[\"https://shopdaddy-studio.com/pages/lookbook\",\"https://example.com/brief.pdf\"]",
                 "terms": "on",
                 "previousPage": "https://shopdaddy-studio.com/"
               }
@@ -221,9 +222,7 @@
                       "errors": {
                         "formErrors": [],
                         "fieldErrors": {
-                          "name": [
-                            "Invalid input: expected string, received undefined"
-                          ]
+                          "name": ["Invalid input: expected string, received undefined"]
                         }
                       }
                     }
@@ -235,16 +234,7 @@
                       "message": "The logo must be one of these file types: EPS, AI, PSD, PDF, SVG, JPG, JPEG, PNG",
                       "errors": {
                         "field": "logo",
-                        "allowed": [
-                          "EPS",
-                          "AI",
-                          "PSD",
-                          "PDF",
-                          "SVG",
-                          "JPG",
-                          "JPEG",
-                          "PNG"
-                        ]
+                        "allowed": ["EPS", "AI", "PSD", "PDF", "SVG", "JPG", "JPEG", "PNG"]
                       }
                     }
                   },
@@ -317,11 +307,7 @@
                       "errors": {
                         "userErrors": [
                           {
-                            "field": [
-                              "metaobject",
-                              "fields",
-                              "0"
-                            ],
+                            "field": ["metaobject", "fields", "0"],
                             "message": "Value is invalid",
                             "code": "INVALID_VALUE"
                           }
@@ -349,10 +335,7 @@
     "schemas": {
       "HealthResponse": {
         "type": "object",
-        "required": [
-          "success",
-          "data"
-        ],
+        "required": ["success", "data"],
         "properties": {
           "success": {
             "type": "boolean",
@@ -360,10 +343,7 @@
           },
           "data": {
             "type": "object",
-            "required": [
-              "status",
-              "uptime"
-            ],
+            "required": ["status", "uptime"],
             "properties": {
               "status": {
                 "type": "string",
@@ -379,10 +359,7 @@
       },
       "ContactFormEntryResponse": {
         "type": "object",
-        "required": [
-          "success",
-          "data"
-        ],
+        "required": ["success", "data"],
         "properties": {
           "success": {
             "type": "boolean",
@@ -390,12 +367,7 @@
           },
           "data": {
             "type": "object",
-            "required": [
-              "id",
-              "handle",
-              "type",
-              "logoUrl"
-            ],
+            "required": ["id", "handle", "type", "logoUrl"],
             "properties": {
               "id": {
                 "type": "string",
@@ -420,11 +392,7 @@
       },
       "ErrorResponse": {
         "type": "object",
-        "required": [
-          "success",
-          "message",
-          "errors"
-        ],
+        "required": ["success", "message", "errors"],
         "properties": {
           "success": {
             "type": "boolean",
