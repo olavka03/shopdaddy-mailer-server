@@ -4,16 +4,16 @@ import { ContactFormParsed } from '@validators';
 import { Request } from 'express';
 import { parseLinkList } from './parse-link-list.util';
 import { parseSelectedProducts } from './parse-selected-products.util';
-import { toHttpUrl } from './to-http-url.util';
+import { toLinkUrl } from './to-link-url.util';
 import { toMailAttachment } from './to-mail-attachment.util';
 import { toStoreUrl } from './to-store-url.util';
 
 /**
- * Links may point anywhere (a product, a page, a file, another site), so unlike products only the scheme and the length
- * are checked. Invalid links are dropped without failing the submission, duplicates are dropped after normalization.
+ * Links may point anywhere (a product, a page, a file, another site), so unlike products they are not limited to the
+ * store. Invalid links are dropped without failing the submission, duplicates are dropped after normalization.
  */
 const toLinks = (links: string[]): string[] => {
-  const urls = links.map((link) => toHttpUrl(link)).filter((url): url is string => Boolean(url));
+  const urls = links.map((link) => toLinkUrl(link)).filter((url): url is string => Boolean(url));
 
   return [...new Set(urls)].slice(0, CONTACT_FORM_LIMITS.LINKS_MAX_COUNT);
 };

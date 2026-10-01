@@ -6,6 +6,7 @@ export * from './parse-selected-products.util';
 export * from './parse-link-list.util';
 export * from './resolve-logo-mime-type.util';
 export * from './to-http-url.util';
+export * from './to-link-url.util';
 export * from './to-store-url.util';
 export * from './to-mail-attachment.util';
 export * from './build-contact-form-payload.util';

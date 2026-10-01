@@ -90,7 +90,7 @@
                   "linkList": {
                     "type": "string",
                     "example": "[\"https://shopdaddy-studio.com/pages/lookbook\",\"https://example.com/brief.pdf\"]",
-                    "description": "JSON array of absolute http(s) urls the form collected (a single bare url is also accepted). Duplicates are dropped, each url must be at most 2048 characters and at most 128 urls are kept. Values that are not absolute http(s) urls are ignored."
+                    "description": "JSON array of links typed in the \"Add a product link\" field (a single bare link is also accepted). A link without a scheme (`example.com/item`) gets `https://`. Only http(s) links with a domain and without credentials are kept; duplicates are dropped, each url must be at most 2048 characters and at most 128 urls are kept. Other values are ignored."
                   },
                   "logo": {
                     "type": "string",
@@ -142,7 +142,7 @@
                   "linkList": {
                     "type": "string",
                     "example": "[\"https://shopdaddy-studio.com/pages/lookbook\",\"https://example.com/brief.pdf\"]",
-                    "description": "JSON array of absolute http(s) urls the form collected (a single bare url is also accepted). Duplicates are dropped, each url must be at most 2048 characters and at most 128 urls are kept. Values that are not absolute http(s) urls are ignored."
+                    "description": "JSON array of links typed in the \"Add a product link\" field (a single bare link is also accepted). A link without a scheme (`example.com/item`) gets `https://`. Only http(s) links with a domain and without credentials are kept; duplicates are dropped, each url must be at most 2048 characters and at most 128 urls are kept. Other values are ignored."
                   },
                   "terms": {
                     "type": "string",
