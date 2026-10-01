@@ -1,71 +1,49 @@
-// nodemailer (disabled): email sending through nodemailer (POST /api/contact-form/email) is switched off.
-// To restore it, uncomment this file and every line marked "nodemailer (disabled)".
+import { resendClient } from '@api';
+import { env } from '@config';
+import { ApiError } from '@exceptions';
+import { buildContactFormEmail } from '@templates';
+import { ContactFormPayload, MailAttachment } from '@types';
+import { Attachment } from 'resend';
 
-// import type Mail from 'nodemailer/lib/mailer';
-// import { mailTransporter } from '@api';
-// import { env } from '@config';
-// import { ApiError } from '@exceptions';
-// import { buildContactFormEmail } from '@templates';
-// import { ContactFormPayload, MailAttachment } from '@types';
-//
-// const buildNodemailerAttachments = (logo?: MailAttachment): Mail.Attachment[] => {
-//   if (!logo) {
-//     return [];
-//   }
-//
-//   const attachment: Mail.Attachment = {
-//     filename: logo.filename,
-//     content: logo.content,
-//     contentType: logo.contentType,
-//   };
-//
-//   if (!logo.isInlineImage || !logo.cid) {
-//     return [attachment];
-//   }
-//
-//   return [{ ...attachment, cid: logo.cid, contentDisposition: 'inline' }];
-// };
-//
-// const toAddressList = (addresses: Array<string | Mail.Address>): string[] => {
-//   return addresses
-//     .map((address) => (typeof address === 'string' ? address : address.address))
-//     .filter((address): address is string => Boolean(address));
-// };
-//
-// const resolveFailureReason = (error: unknown): string => {
-//   if (error instanceof Error) {
-//     return error.message;
-//   }
-//
-//   return String(error);
-// };
-//
-// export const sendContactFormEmail = async (payload: ContactFormPayload) => {
-//   const { subject, html, text } = buildContactFormEmail(payload);
-//   const attachments = buildNodemailerAttachments(payload.logo);
-//
-//   try {
-//     const info = await mailTransporter.sendMail({
-//       from: { name: env.MAIL_FROM_NAME, address: env.MAIL_USER },
-//       to: env.MAIL_TO,
-//       replyTo: payload.email,
-//       subject,
-//       html,
-//       text,
-//       attachments,
-//     });
-//
-//     // eslint-disable-next-line no-console
-//     console.info(
-//       `[MAIL] Contact form email sent to ${env.MAIL_TO} — messageId: ${info.messageId}, products: ${payload.products.length}, attachments: ${attachments.length}`,
-//     );
-//
-//     return {
-//       messageId: info.messageId,
-//       accepted: toAddressList(info.accepted),
-//       rejected: toAddressList(info.rejected),
-//     };
-//   } catch (error) {
-//     throw ApiError.BadGateway('Failed to send the contact form email', { reason: resolveFailureReason(error) });
-//   }
-// };
+const MAIL_FROM = `${env.MAIL_FROM_NAME} <${env.MAIL_FROM_EMAIL}>`;
+
+/** Sent as base64: the SDK serializes a Buffer with JSON.stringify, which turns every byte into a JSON number. */
+const toResendAttachments = (logo?: MailAttachment): Attachment[] => {
+  if (!logo) {
+    return [];
+  }
+
+  return [{ filename: logo.filename, content: logo.content.toString('base64'), contentType: logo.contentType }];
+};
+
+/** Sends the submission to MAIL_TO; replying to the email answers the visitor directly. */
+export const sendContactFormEmail = async (payload: ContactFormPayload): Promise<{ id: string }> => {
+  const { subject, html, text } = buildContactFormEmail(payload);
+  const attachments = toResendAttachments(payload.logo);
+
+  const { data, error } = await resendClient.emails.send({
+    from: MAIL_FROM,
+    to: env.MAIL_TO,
+    replyTo: payload.email,
+    subject,
+    html,
+    text,
+    attachments,
+  });
+
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[MAIL] Resend rejected the contact form email — ${error.name} (status: ${error.statusCode ?? 'none'}): ${error.message}`,
+    );
+
+    throw ApiError.BadGateway('Failed to send the contact form email', { code: error.name });
+  }
+
+  // eslint-disable-next-line no-console
+  console.info(
+    `[MAIL] Contact form email sent — id: ${data.id}, products: ${payload.products.length}, links: ${payload.links.length}, attachments: ${attachments.length}`,
+  );
+
+  return { id: data.id };
+};

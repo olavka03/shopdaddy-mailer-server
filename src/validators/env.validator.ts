@@ -1,16 +1,13 @@
 import zod from 'zod';
 
+/** Resend accepts at most 50 recipients per email (https://resend.com/docs/api-reference/emails/send-email). */
+const MAX_RECIPIENTS = 50;
+
 export const validPortSchema = zod
   .string()
   .trim()
   .transform(Number)
   .refine((port) => Number.isInteger(port) && port >= 1 && port <= 65535, 'Must be an integer between 1 and 65535');
-
-export const booleanStringSchema = zod
-  .string()
-  .trim()
-  .toLowerCase()
-  .transform((value) => value === 'true' || value === '1');
 
 export const availableOriginsSchema = zod
   .string()
@@ -26,30 +23,28 @@ export const availableOriginsSchema = zod
     return value === '*' || origins.length === 0 ? '*' : origins;
   });
 
-/** The Admin API is served only on the *.myshopify.com host, never on the storefront domain. */
-export const myshopifyDomainSchema = zod
-  .string()
-  .trim()
-  .toLowerCase()
-  .regex(
-    /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/,
-    'SHOPIFY_STORE_DOMAIN must be the *.myshopify.com domain, for example shopdaddy-studio.myshopify.com',
-  );
+export const resendApiKeySchema = zod.string().trim().startsWith('re_', 'Must be a Resend API key, it starts with re_');
 
-/**
- * MetaobjectDefinitionCreateInput.type (2026-07): 3-255 characters, only alphanumeric, hyphen and underscore
- * (https://shopify.dev/docs/api/admin-graphql/2026-07/input-objects/MetaobjectDefinitionCreateInput).
- * The type must be merchant-owned: `$app:` types are app-owned and no other app, Shopify Flow included, can read them
- * (https://shopify.dev/docs/api/admin-graphql/2026-07/enums/MetaobjectAdminAccessInput).
- */
-export const metaobjectTypeSchema = zod
+/** Display name of the From header; quotes, angle brackets, commas and line breaks would break `Name <email>`. */
+export const mailFromNameSchema = zod
   .string()
   .trim()
-  .refine(
-    (value) => !value.startsWith('$app:'),
-    'SHOPIFY_METAOBJECT_TYPE must be a merchant-owned type, it must not start with $app:',
+  .optional()
+  .transform((value) => value || 'Shopdaddy Studio')
+  .pipe(zod.string().regex(/^[^"<>,;\r\n]+$/, 'Must not contain quotes, angle brackets, commas or semicolons'));
+
+/** Comma-separated list of email addresses, for example `orders@shop.com, owner@shop.com`. */
+export const emailListSchema = zod
+  .string()
+  .transform((value) =>
+    value
+      .split(',')
+      .map((email) => email.trim())
+      .filter((email) => email.length > 0),
   )
-  .regex(
-    /^[A-Za-z0-9_-]{3,255}$/,
-    'SHOPIFY_METAOBJECT_TYPE must be 3-255 characters long and contain only letters, digits, hyphens and underscores, for example contact_form',
+  .pipe(
+    zod
+      .array(zod.email('Must be a comma-separated list of valid email addresses'))
+      .min(1, 'At least one email address is required')
+      .max(MAX_RECIPIENTS, `At most ${MAX_RECIPIENTS} email addresses are allowed`),
   );

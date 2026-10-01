@@ -20,7 +20,6 @@
       "@controllers": ["src/controllers/index.ts"],
       "@enums": ["src/enums/index.ts"],
       "@exceptions": ["src/exceptions/index.ts"],
-      "@graphql": ["src/graphql/index.ts"],
       "@middlewares": ["src/middlewares/index.ts"],
       "@routes": ["src/routes/index.ts"],
       "@services": ["src/services/index.ts"],

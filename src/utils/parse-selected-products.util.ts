@@ -1,5 +1,4 @@
-import { SelectedProduct } from '@types';
-import { selectedProductSchema } from '@validators';
+import { SelectedProductParsed, selectedProductSchema } from '@validators';
 
 const toRawProductList = (value: unknown): unknown[] => {
   if (Array.isArray(value)) {
@@ -25,8 +24,9 @@ const toRawProductList = (value: unknown): unknown[] => {
   }
 };
 
-export const parseSelectedProducts = (value: unknown): SelectedProduct[] => {
-  const products: SelectedProduct[] = [];
+/** Products as the storefront sent them; items that are not `{ name, variant?, url? }` objects are skipped. */
+export const parseSelectedProducts = (value: unknown): SelectedProductParsed[] => {
+  const products: SelectedProductParsed[] = [];
 
   for (const item of toRawProductList(value)) {
     const parsed = selectedProductSchema.safeParse(item);

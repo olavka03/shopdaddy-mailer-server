@@ -1,9 +1,10 @@
+import { LOGO_UPLOAD } from '@constants';
 import { ApiError } from '@exceptions';
 import { ErrorRequestHandler, NextFunction, Request, Response } from 'express';
 import multer from 'multer';
 
 const MULTER_ERROR_MESSAGES: Record<string, string> = {
-  LIMIT_FILE_SIZE: 'The logo file is too large',
+  LIMIT_FILE_SIZE: `The logo file is too large, the maximum is ${LOGO_UPLOAD.MAX_SIZE_MB} MB`,
   LIMIT_FILE_COUNT: 'Only one file can be uploaded, in the "logo" field',
   LIMIT_UNEXPECTED_FILE: 'Only one file can be uploaded, in the "logo" field',
 };

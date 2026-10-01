@@ -1,10 +1,22 @@
+import { CONTACT_FORM_LIMITS } from '@constants';
 import { ContactFormPayload } from '@types';
 import { ContactFormParsed } from '@validators';
 import { Request } from 'express';
 import { parseLinkList } from './parse-link-list.util';
 import { parseSelectedProducts } from './parse-selected-products.util';
-import { resolveAbsoluteUrl } from './resolve-absolute-url.util';
-import { toFormFile } from './to-form-file.util';
+import { toHttpUrl } from './to-http-url.util';
+import { toMailAttachment } from './to-mail-attachment.util';
+import { toStoreUrl } from './to-store-url.util';
+
+/**
+ * Links may point anywhere (a product, a page, a file, another site), so unlike products only the scheme and the length
+ * are checked. Invalid links are dropped without failing the submission, duplicates are dropped after normalization.
+ */
+const toLinks = (links: string[]): string[] => {
+  const urls = links.map((link) => toHttpUrl(link)).filter((url): url is string => Boolean(url));
+
+  return [...new Set(urls)].slice(0, CONTACT_FORM_LIMITS.LINKS_MAX_COUNT);
+};
 
 export const buildContactFormPayload = (
   req: Request,
@@ -12,8 +24,9 @@ export const buildContactFormPayload = (
   storeUrl: string,
 ): ContactFormPayload => {
   const products = parseSelectedProducts(data.selectedProducts).map((product) => ({
-    ...product,
-    absoluteUrl: resolveAbsoluteUrl(product.url, storeUrl) ?? undefined,
+    name: product.name,
+    variant: product.variant,
+    url: toStoreUrl(product.url, storeUrl),
   }));
 
   return {
@@ -22,8 +35,8 @@ export const buildContactFormPayload = (
     message: data.message,
     termsAccepted: data.terms,
     products,
-    links: parseLinkList(data.linkList),
-    logo: toFormFile(req.file),
+    links: toLinks(parseLinkList(data.linkList)),
+    logo: toMailAttachment(req.file),
     previousPage: data.previousPage,
     submittedAt: new Date(),
   };

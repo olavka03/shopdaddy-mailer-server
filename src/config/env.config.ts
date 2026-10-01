@@ -3,10 +3,9 @@ import dotenv from 'dotenv';
 import { Environment } from '@enums';
 import {
   availableOriginsSchema,
-  // nodemailer (disabled): only MAIL_SECURE uses it
-  // booleanStringSchema,
-  metaobjectTypeSchema,
-  myshopifyDomainSchema,
+  emailListSchema,
+  mailFromNameSchema,
+  resendApiKeySchema,
   validPortSchema,
 } from '@validators';
 
@@ -22,19 +21,19 @@ const envSchema = zod.object({
   SHOPIFY_STORE_URL: zod
     .string()
     .trim()
-    .pipe(zod.url('SHOPIFY_STORE_URL must be a valid URL, for example https://shopdaddy-studio.com')),
-  SHOPIFY_STORE_DOMAIN: myshopifyDomainSchema,
-  SHOPIFY_ACCESS_TOKEN: zod.string().trim().min(1, 'SHOPIFY_ACCESS_TOKEN is required'),
-  SHOPIFY_METAOBJECT_TYPE: metaobjectTypeSchema,
-  // nodemailer (disabled): SMTP settings for POST /api/contact-form/email
-  // MAIL_HOST: zod.string().trim().optional().default('smtp.gmail.com'),
-  // MAIL_PORT: zod.string().optional().default('465').pipe(validPortSchema),
-  // MAIL_SECURE: zod.string().optional().default('true').pipe(booleanStringSchema),
-  // MAIL_USER: zod.string().trim().pipe(zod.email('MAIL_USER must be a valid email address')),
-  // MAIL_APP_PASSWORD: zod.string().trim().min(1, 'MAIL_APP_PASSWORD is required'),
-  // MAIL_TO: zod.string().trim().pipe(zod.email('MAIL_TO must be a valid email address')),
-  // MAIL_FROM_NAME: zod.string().trim().optional().default('Contact Form'),
-  // MAIL_SUBJECT_PREFIX: zod.string().trim().optional().default('New contact form submission'),
+    .pipe(
+      zod.url({
+        protocol: /^https?$/,
+        error: 'SHOPIFY_STORE_URL must be a valid URL, for example https://shopdaddy-studio.com',
+      }),
+    ),
+  RESEND_API_KEY: resendApiKeySchema,
+  MAIL_FROM_EMAIL: zod
+    .string()
+    .trim()
+    .pipe(zod.email('MAIL_FROM_EMAIL must be a valid email address on a domain verified in Resend')),
+  MAIL_FROM_NAME: mailFromNameSchema,
+  MAIL_TO: emailListSchema,
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

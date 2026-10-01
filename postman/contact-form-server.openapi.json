@@ -3,7 +3,7 @@
   "info": {
     "title": "Contact Form Server",
     "version": "1.0.0",
-    "description": "Receives the Shopdaddy Studio custom-order form and creates an entry of the `contact_form` metaobject in Shopify. The server authenticates to Shopify with `SHOPIFY_ACCESS_TOKEN` from its own environment, so clients send no auth. Every response uses the envelope `{ success, data }` or `{ success, message, errors }`."
+    "description": "Receives the Shopdaddy Studio custom-order form and sends it as an HTML email through Resend to the addresses in `MAIL_TO`, with the logo as an attachment and the visitor email as Reply-To. The server authenticates to Resend with `RESEND_API_KEY` from its own environment, so clients send no auth. Every response uses the envelope `{ success, data }` or `{ success, message, errors }`."
   },
   "servers": [
     {
@@ -53,9 +53,9 @@
     "/api/contact-form": {
       "post": {
         "tags": ["Contact form"],
-        "summary": "Create a contact_form metaobject entry",
-        "operationId": "createContactFormEntry",
-        "description": "Uploads the optional logo to Shopify Files, then creates **one real** `contact_form` metaobject entry in a single call.\n\n| Metaobject field | Value |\n| --- | --- |\n| `name` | `name` |\n| `email` | `email` |\n| `message` | `message` (omitted when empty) |\n| `products` | `selectedProducts` as a JSON array, absolute store urls (omitted when empty) |\n| `logo` | public Shopify Files url of the uploaded logo (omitted without a logo) |\n| `previous_page` | `previousPage` when it is an absolute http(s) url |\n| `terms_accepted` | `true` / `false` |\n| `submitted_at` | server time, UTC |",
+        "summary": "Send the contact form by email",
+        "operationId": "sendContactForm",
+        "description": "Builds the email and sends it through Resend in one call. Nothing is stored.\n\n| Email part | Value |\n| --- | --- |\n| From | `MAIL_FROM_NAME <MAIL_FROM_EMAIL>` |\n| To | `MAIL_TO` |\n| Reply-To | `email` |\n| Subject | `New custom order request from <name>` |\n| Body | `name`, `email`, `previousPage`, `terms`, `message`, `selectedProducts` (absolute store urls), `linkList`, submission time (UTC) |\n| Attachment | `logo`, under its original file name |",
         "requestBody": {
           "required": true,
           "content": {
@@ -68,45 +68,45 @@
                     "type": "string",
                     "minLength": 1,
                     "example": "Alma Morales",
-                    "description": "Visitor name."
+                    "description": "Visitor name. Line breaks are collapsed into spaces; used in the email subject."
                   },
                   "email": {
                     "type": "string",
                     "format": "email",
                     "example": "tinoviw@mailinator.com",
-                    "description": "Visitor email."
+                    "description": "Visitor email; becomes the Reply-To of the email."
                   },
                   "message": {
                     "type": "string",
                     "maxLength": 10000,
                     "example": "Ipsum veniam a sed ",
-                    "description": "Free-text message, up to 10 000 characters."
+                    "description": "Free-text message, up to 10 000 characters. Line breaks are kept."
                   },
                   "selectedProducts": {
                     "type": "string",
                     "example": "[\n\t\t{\"name\":\"Red Set of Thick Leather Coasters (5 pcs)\",\"variant\":\"Red\",\"url\":\"/products/set-of-thick-leather-coasters-5-pcs?_pos=1&_psq=re&_psid=ebb3966bf&_ss=e&variant=39382829957207\"},\n\t\t{\"name\":\"Red Leather Menu Book with Woven Pattern\",\"variant\":\"Red / 8.5x5.5\",\"url\":\"/products/red-leather-menu-book-with-woven-pattern?_pos=2&_psq=re&_psid=ebb3966bf&_ss=e&variant=42707676987479\"}\n\t]",
-                    "description": "JSON string of `[{ name, variant, url }]` exactly as the storefront form sends it (relative urls). Stored in the metaobject field `products` as a JSON array with the same structure and absolute urls on https://shopdaddy-studio.com, e.g. `[{\"name\":\"Red Set of Thick Leather Coasters (5 pcs)\",\"variant\":\"Red\",\"url\":\"https://shopdaddy-studio.com/products/set-of-thick-leather-coasters-5-pcs?_pos=1&_psq=re&_psid=ebb3966bf&_ss=e&variant=39382829957207\"},{\"name\":\"Red Leather Menu Book with Woven Pattern\",\"variant\":\"Red / 8.5x5.5\",\"url\":\"https://shopdaddy-studio.com/products/red-leather-menu-book-with-woven-pattern?_pos=2&_psq=re&_psid=ebb3966bf&_ss=e&variant=42707676987479\"}]`."
+                    "description": "JSON string of `[{ name, variant, url }]` exactly as the storefront form sends it (relative urls). Each url is resolved against `SHOPIFY_STORE_URL` and rendered as a \"View product\" button; a url pointing to another site is dropped. Items without a `name` are skipped."
                   },
                   "linkList": {
                     "type": "string",
                     "example": "[\"https://shopdaddy-studio.com/pages/lookbook\",\"https://example.com/brief.pdf\"]",
-                    "description": "JSON array of absolute http(s) urls the form collected (a single bare url is also accepted). Stored in the metaobject field `link_list` as a list of urls: duplicates are dropped, each url must be at most 2 KB and at most 128 urls are kept. Values that are not absolute http(s) urls are ignored."
+                    "description": "JSON array of absolute http(s) urls the form collected (a single bare url is also accepted). Duplicates are dropped, each url must be at most 2048 characters and at most 128 urls are kept. Values that are not absolute http(s) urls are ignored."
                   },
                   "logo": {
                     "type": "string",
                     "format": "binary",
-                    "description": "One file: EPS, AI, PSD, PDF, SVG, JPG/JPEG or PNG, max 20 MB. Only this field accepts a file."
+                    "description": "One file: EPS, AI, PSD, PDF, SVG, JPG/JPEG or PNG, max 20 MB. Attached to the email, never stored. Only this field accepts a file."
                   },
                   "terms": {
                     "type": "string",
                     "example": "on",
-                    "description": "Checkbox value, `on` when ticked. Stored as `terms_accepted`."
+                    "description": "Checkbox value, `on` when ticked. Rendered as Accepted / Not accepted."
                   },
                   "previousPage": {
                     "type": "string",
                     "format": "uri",
                     "example": "https://shopdaddy-studio.com/",
-                    "description": "Hidden input with `document.referrer`. Only an absolute http(s) url is kept; stored as `previous_page`."
+                    "description": "Hidden input with `document.referrer`. Only an absolute http(s) url is kept; rendered as \"Came from\"."
                   }
                 }
               }
@@ -120,40 +120,40 @@
                     "type": "string",
                     "minLength": 1,
                     "example": "Alma Morales",
-                    "description": "Visitor name."
+                    "description": "Visitor name. Line breaks are collapsed into spaces; used in the email subject."
                   },
                   "email": {
                     "type": "string",
                     "format": "email",
                     "example": "tinoviw@mailinator.com",
-                    "description": "Visitor email."
+                    "description": "Visitor email; becomes the Reply-To of the email."
                   },
                   "message": {
                     "type": "string",
                     "maxLength": 10000,
                     "example": "Ipsum veniam a sed ",
-                    "description": "Free-text message, up to 10 000 characters."
+                    "description": "Free-text message, up to 10 000 characters. Line breaks are kept."
                   },
                   "selectedProducts": {
                     "type": "string",
                     "example": "[\n\t\t{\"name\":\"Red Set of Thick Leather Coasters (5 pcs)\",\"variant\":\"Red\",\"url\":\"/products/set-of-thick-leather-coasters-5-pcs?_pos=1&_psq=re&_psid=ebb3966bf&_ss=e&variant=39382829957207\"},\n\t\t{\"name\":\"Red Leather Menu Book with Woven Pattern\",\"variant\":\"Red / 8.5x5.5\",\"url\":\"/products/red-leather-menu-book-with-woven-pattern?_pos=2&_psq=re&_psid=ebb3966bf&_ss=e&variant=42707676987479\"}\n\t]",
-                    "description": "JSON string of `[{ name, variant, url }]` exactly as the storefront form sends it (relative urls). Stored in the metaobject field `products` as a JSON array with the same structure and absolute urls on https://shopdaddy-studio.com, e.g. `[{\"name\":\"Red Set of Thick Leather Coasters (5 pcs)\",\"variant\":\"Red\",\"url\":\"https://shopdaddy-studio.com/products/set-of-thick-leather-coasters-5-pcs?_pos=1&_psq=re&_psid=ebb3966bf&_ss=e&variant=39382829957207\"},{\"name\":\"Red Leather Menu Book with Woven Pattern\",\"variant\":\"Red / 8.5x5.5\",\"url\":\"https://shopdaddy-studio.com/products/red-leather-menu-book-with-woven-pattern?_pos=2&_psq=re&_psid=ebb3966bf&_ss=e&variant=42707676987479\"}]`."
+                    "description": "JSON string of `[{ name, variant, url }]` exactly as the storefront form sends it (relative urls). Each url is resolved against `SHOPIFY_STORE_URL` and rendered as a \"View product\" button; a url pointing to another site is dropped. Items without a `name` are skipped."
                   },
                   "linkList": {
                     "type": "string",
                     "example": "[\"https://shopdaddy-studio.com/pages/lookbook\",\"https://example.com/brief.pdf\"]",
-                    "description": "JSON array of absolute http(s) urls the form collected (a single bare url is also accepted). Stored in the metaobject field `link_list` as a list of urls: duplicates are dropped, each url must be at most 2 KB and at most 128 urls are kept. Values that are not absolute http(s) urls are ignored."
+                    "description": "JSON array of absolute http(s) urls the form collected (a single bare url is also accepted). Duplicates are dropped, each url must be at most 2048 characters and at most 128 urls are kept. Values that are not absolute http(s) urls are ignored."
                   },
                   "terms": {
                     "type": "string",
                     "example": "on",
-                    "description": "Checkbox value, `on` when ticked. Stored as `terms_accepted`."
+                    "description": "Checkbox value, `on` when ticked. Rendered as Accepted / Not accepted."
                   },
                   "previousPage": {
                     "type": "string",
                     "format": "uri",
                     "example": "https://shopdaddy-studio.com/",
-                    "description": "Hidden input with `document.referrer`. Only an absolute http(s) url is kept; stored as `previous_page`."
+                    "description": "Hidden input with `document.referrer`. Only an absolute http(s) url is kept; rendered as \"Came from\"."
                   }
                 }
               },
@@ -171,11 +171,11 @@
         },
         "responses": {
           "201": {
-            "description": "Entry created",
+            "description": "Email accepted by Resend",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContactFormEntryResponse"
+                  "$ref": "#/components/schemas/ContactFormEmailResponse"
                 },
                 "examples": {
                   "withLogo": {
@@ -183,10 +183,11 @@
                     "value": {
                       "success": true,
                       "data": {
-                        "id": "gid://shopify/Metaobject/123456789012",
-                        "handle": "contact-form-5f0c7b2e-8a41-4d7e-9a3c-2b6f1e0d9c11",
-                        "type": "contact_form",
-                        "logoUrl": "https://cdn.shopify.com/s/files/1/0000/0000/0000/files/a1b2c3d4-9e8f-4a7b-8c6d-5e4f3a2b1c0d-brand-logo.png?v=1789643900"
+                        "id": "4ef9a417-02e9-4d39-ad75-9611e0fcc33c",
+                        "sentAt": "2026-10-01T10:42:11.387Z",
+                        "productsCount": 2,
+                        "linksCount": 2,
+                        "attachmentsCount": 1
                       }
                     }
                   },
@@ -195,10 +196,11 @@
                     "value": {
                       "success": true,
                       "data": {
-                        "id": "gid://shopify/Metaobject/123456789013",
-                        "handle": "contact-form-0d9c11e2-6b3f-4a2e-8c1d-7f5a4b3c2d1e",
-                        "type": "contact_form",
-                        "logoUrl": null
+                        "id": "9b2c6f10-5d3e-4a8b-b1c7-2e4f6a8d0c13",
+                        "sentAt": "2026-10-01T10:45:02.019Z",
+                        "productsCount": 0,
+                        "linksCount": 0,
+                        "attachmentsCount": 0
                       }
                     }
                   }
@@ -242,7 +244,7 @@
                     "summary": "Logo over 20 MB",
                     "value": {
                       "success": false,
-                      "message": "The logo file is too large",
+                      "message": "The logo file is too large, the maximum is 20 MB",
                       "errors": {
                         "code": "LIMIT_FILE_SIZE",
                         "field": "logo"
@@ -264,63 +266,42 @@
               }
             }
           },
-          "422": {
-            "description": "Shopify could not process the logo",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "success": false,
-                  "message": "The logo file could not be processed, please upload a different file",
-                  "errors": {
-                    "reason": "processing failed"
-                  }
-                }
-              }
-            }
-          },
           "502": {
-            "description": "Shopify Admin API failed",
+            "description": "Resend rejected the email or is unreachable. `errors.code` is the Resend error name; the full message is only logged on the server.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
                 "examples": {
-                  "tokenRejected": {
-                    "summary": "Access token rejected",
+                  "domainNotVerified": {
+                    "summary": "Sender domain not verified in Resend",
                     "value": {
                       "success": false,
-                      "message": "Shopify Admin API rejected the access token",
+                      "message": "Failed to send the contact form email",
                       "errors": {
-                        "status": 401
+                        "code": "validation_error"
                       }
                     }
                   },
-                  "entryRejected": {
-                    "summary": "Entry rejected by Shopify",
+                  "invalidKey": {
+                    "summary": "API key rejected",
                     "value": {
                       "success": false,
-                      "message": "Could not create the contact form entry",
+                      "message": "Failed to send the contact form email",
                       "errors": {
-                        "userErrors": [
-                          {
-                            "field": ["metaobject", "fields", "0"],
-                            "message": "Value is invalid",
-                            "code": "INVALID_VALUE"
-                          }
-                        ]
+                        "code": "invalid_api_key"
                       }
                     }
                   },
-                  "logoTimeout": {
-                    "summary": "Logo not processed in time",
+                  "unreachable": {
+                    "summary": "Resend unreachable",
                     "value": {
                       "success": false,
-                      "message": "The logo was not processed by Shopify in time",
-                      "errors": {}
+                      "message": "Failed to send the contact form email",
+                      "errors": {
+                        "code": "application_error"
+                      }
                     }
                   }
                 }
@@ -357,7 +338,7 @@
           }
         }
       },
-      "ContactFormEntryResponse": {
+      "ContactFormEmailResponse": {
         "type": "object",
         "required": ["success", "data"],
         "properties": {
@@ -367,24 +348,28 @@
           },
           "data": {
             "type": "object",
-            "required": ["id", "handle", "type", "logoUrl"],
+            "required": ["id", "sentAt", "productsCount", "linksCount", "attachmentsCount"],
             "properties": {
               "id": {
                 "type": "string",
-                "example": "gid://shopify/Metaobject/123456789012"
+                "description": "Resend email id",
+                "example": "4ef9a417-02e9-4d39-ad75-9611e0fcc33c"
               },
-              "handle": {
+              "sentAt": {
                 "type": "string",
-                "example": "contact-form-5f0c7b2e-8a41-4d7e-9a3c-2b6f1e0d9c11"
+                "format": "date-time"
               },
-              "type": {
-                "type": "string",
-                "example": "contact_form"
+              "productsCount": {
+                "type": "integer",
+                "description": "Products rendered in the email"
               },
-              "logoUrl": {
-                "type": "string",
-                "format": "uri",
-                "nullable": true
+              "linksCount": {
+                "type": "integer",
+                "description": "Links rendered in the email, after invalid ones were dropped"
+              },
+              "attachmentsCount": {
+                "type": "integer",
+                "enum": [0, 1]
               }
             }
           }
